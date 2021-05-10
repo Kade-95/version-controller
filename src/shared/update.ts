@@ -11,11 +11,11 @@ export function update(current: any, changes: Change[]) {
         let attr = temp;
 
         for (let i = 0; i < c.path.length; i++) {
-            if (i == c.path.length - 1) {
-                if (c.type == ChangeTypes.REMOVED) {
+            if (i == c.path.length - 1) {                
+                if (c.type == ChangeTypes.ADDED) {
                     delete attr[c.path[i]]
                 }
-                else {
+                else {                    
                     attr[c.path[i]] = c.after;
                 }
             }

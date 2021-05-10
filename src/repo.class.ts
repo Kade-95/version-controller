@@ -6,6 +6,7 @@ import { Commit, CommitChange } from "./models/commit.model";
 import { insertFunction, readFunction, RepoDatabase, updateFunction } from "./repo.database";
 import { Change, ChangeTypes, getChanges } from "./shared/changes";
 import { retrieve } from "./shared/retrieve";
+import { rollback } from "./shared/rollback";
 import { update } from "./shared/update";
 
 export interface RepoHead {
@@ -47,8 +48,9 @@ export class Repo<T> implements IRepo<T> {
         const nChanges = this.changes.length;
         const nStaged = this.staged.length;
         const commit = this.commits.find(c => c._id == this.head.commit);
-        const nCommits = this.commitAncestors(commit).length + 1;
-        return { branch, nBranch, nChanges, nStaged, commit, nCommits };
+        const nCommits = this.commitAncestory(commit).length + 1;
+        const head = this.head;
+        return { branch, nBranch, nChanges, nStaged, commit, nCommits, head };
     }
 
     constructor(
@@ -59,23 +61,23 @@ export class Repo<T> implements IRepo<T> {
 
     private async initialize() {
         //Initialize repo with first commit, branch and the head, then checkout the branch and commit
-        this.commit("Initial Commit");
-        this.createBranch("main");
-        this.checkout("main");
+        this.commit("Initial Commit", []);
+        const branch = await this.createBranch("main");
+        this.head.branch = branch._id;
 
-        //Set the initial content
-        this.content = {
-            _id: uuidV4(),
-            name: this.name,
-            changes: this.changes,
-            commits: this.commits,
-            branches: this.branches,
-            staged: this.staged,
-            head: this.head,
-            time: this.time,
-            merged: [],
-            data: this.data
-        };
+            //Set the initial content
+            this.content = {
+                _id: uuidV4(),
+                name: this.name,
+                changes: this.changes,
+                commits: this.commits,
+                branches: this.branches,
+                staged: this.staged,
+                head: this.head,
+                time: this.time,
+                merged: [],
+                data: this.data
+            };
 
         //Create the repo
         await this.insert();
@@ -100,46 +102,79 @@ export class Repo<T> implements IRepo<T> {
         }
     }
 
-    private commitAncestors(commit: Commit) {
-        let ancestors: Commit[] = [];
-        const { parents } = commit;
+    private commitAncestory(commit: Commit) {
+        let historys: Commit[] = [];
+        const { history } = commit;
 
-        if (parents) {
-
+        if (history.length) {
             const parentCommit = this.commits.reverse().find(c => {
-                return c._id == parents.ancestor || c._id == parents.merged;
+                return history.includes(c._id);
             });
 
-            if (parentCommit) ancestors = [parentCommit, ...this.commitAncestors(parentCommit)]
+            if (parentCommit) historys = [parentCommit, ...this.commitAncestory(parentCommit)]
         }
 
-        return ancestors;
+        return historys;
     }
 
-    private isAncestorCommit(ancestor: Commit, child: Commit) {
-        const childAncestors = this.commitAncestors(child);
-        return childAncestors.find(a => a._id == ancestor._id);
+    private equalCommits(first: Commit, second: Commit) {
+        return first._id == second._id;
+    }
+
+    private commitToAncestor(child: Commit, ancestor: Commit) {
+        const commits: Commit[] = [];
+
+        if (!this.isCommitAncestory(ancestor, child) && !this.equalCommits(child, ancestor)) {
+            return [];
+        }
+        commits.push(child);
+
+        const ancestors = this.commitAncestory(child);
+        const ancestorIndex = ancestors.findIndex(a => a._id == ancestor._id);
+        const tillAncestor = ancestors.slice(0, ancestorIndex + 1);
+
+        commits.push(...tillAncestor);
+        return commits;
+    }
+
+    private commitHistoryTillAncestor(child: Commit, ancestor: Commit) {
+        const changes: CommitChange[] = [];
+
+        const ancestory = this.commitToAncestor(child, ancestor);
+        changes.push(
+            ...ancestory.slice(0, ancestory.length - 1)
+                .reduce((acc: CommitChange[], commit: Commit) => {
+                    return [...acc, ...commit.changes];
+                }, [])
+        );
+
+        return changes;
+    }
+
+    private isCommitAncestory(parent: Commit, child: Commit) {
+        const childHistorys = this.commitAncestory(child);
+        return !!childHistorys.find(a => a._id == parent._id);
     }
 
     private commitsLastCommonAncestor(first: Commit, second: Commit) {
-        const firstAncestors = this.commitAncestors(first);
-        const secondAncestors = this.commitAncestors(second);
+        const firstHistorys = this.commitAncestory(first);
+        const secondHistorys = this.commitAncestory(second);
 
-        let ancestor: Commit;
-
-        if (this.isAncestorCommit(first, second)) ancestor = first;
-        else if (this.isAncestorCommit(second, first)) ancestor = second;
+        let last: Commit;
+        if (first._id == second._id) last = first;
+        else if (this.isCommitAncestory(first, second)) last = first;
+        else if (this.isCommitAncestory(second, first)) last = second;
         else {
-            for (const a in firstAncestors) {
-                for (const b in secondAncestors) {
-                    if (firstAncestors[a] === secondAncestors[b]) ancestor = firstAncestors[a];
-                    if (ancestor) break;
+            for (const a in firstHistorys) {
+                for (const b in secondHistorys) {
+                    if (firstHistorys[a] === secondHistorys[b]) last = firstHistorys[a];
+                    if (last) break;
                 }
-                if (ancestor) break;
+                if (last) break;
             }
         }
 
-        return ancestor;
+        return last;
     }
 
     async onload(callback = (repo: Repo<T>) => { }) {
@@ -159,6 +194,7 @@ export class Repo<T> implements IRepo<T> {
         }
 
         await this.database.update({ _id: this._id }, { changes: this.changes, data: this.board });
+        await this.read();
     }
 
     async createBranch(name: string) {
@@ -169,6 +205,7 @@ export class Repo<T> implements IRepo<T> {
         this.branches.push(branch);
 
         await this.database.update({ _id: this._id }, { branches: this.branches });
+        return branch;
     }
 
     async deleteBranch(name: string) {
@@ -184,14 +221,42 @@ export class Repo<T> implements IRepo<T> {
     }
 
     async checkout(name: string) {
+        // Check there are staged or commited changes
         if (this.details.nChanges) throw new Error("Unstaged Changes");
         if (this.details.nStaged) throw new Error("Uncommited Changes");
 
-        const branch = this.branches.find(b => b.name == name);
-        if (!branch) throw new Error("Unknown branch");
+        // get current and incoming branches
+        const currentBranch = this.branches.find(b => b._id == this.head.branch);
+        const incomingBranch = this.branches.find(b => b.name == name);
 
-        this.head.branch = branch._id;
-        await this.database.update({ _id: this._id }, { head: this.head });
+        // check if incoming branch is existing
+        if (!incomingBranch) throw new Error("Unknown branch");
+        console.log(`Checkout from ${currentBranch.name} to ${incomingBranch.name}`);
+
+        //get current commit and incoming commits
+        const currentCommit = this.commits.find(c => c._id == currentBranch.commit);
+        const incomingCommit = this.commits.find(c => c._id == incomingBranch.commit);        
+
+        // get last commits ancestor
+        const lastCommitAncestor = this.commitsLastCommonAncestor(currentCommit, incomingCommit);
+        
+        // get the changes to revert and to write
+        const reverts = this.commitHistoryTillAncestor(currentCommit, lastCommitAncestor);
+        const changes = this.commitHistoryTillAncestor(incomingCommit, lastCommitAncestor).reverse();
+
+        console.log(`Rolling back ${reverts.length} changes`);
+        const reverted = rollback(this.data, reverts);      
+        
+        console.log(`Writing ${changes.length} changes`);
+        const updated = update(reverted, changes);
+
+        this.head.branch = incomingBranch._id;
+        this.head.commit = incomingBranch.commit;
+        
+        await this.database.update({ _id: this._id }, { head: this.head, data: updated });
+        await this.read();
+
+        console.log("Checkout is successful");
     }
 
     async stage(paths?: string[][]) {
@@ -222,7 +287,7 @@ export class Repo<T> implements IRepo<T> {
         await this.database.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
     }
 
-    async commit(message: string, ancestor: string = this.head.commit) {
+    async commit(message: string, history: string[] = [this.head.commit]) {
         if (!this.staged.length && this.initialized) return;
 
         let changes: CommitChange[] = [];
@@ -231,14 +296,22 @@ export class Repo<T> implements IRepo<T> {
         }
 
         const commit: Commit = {
-            _id: uuidV4(), message, changes, parents: { ancestor }, time: new Date()
+            _id: uuidV4(), message, changes, history, time: new Date()
         };
 
         this.commits.push(commit);
         this.head.commit = commit._id;
         this.staged = [];
 
-        await this.database.update({ _id: this._id }, { commits: this.commits, staged: this.staged, head: this.head });
+        this.branches = this.branches.map(b => {
+            if (b._id == this.head.branch) {
+                b.commit = this.head.commit;
+            }
+
+            return b;
+        });
+
+        await this.database.update({ _id: this._id }, { commits: this.commits, staged: this.staged, head: this.head, branches: this.branches });
     }
 
     async merge(name: string) {
@@ -255,12 +328,12 @@ export class Repo<T> implements IRepo<T> {
             return;
         }
 
-        if (this.isAncestorCommit(currentCommit, incomingCommit)) {
+        if (this.isCommitAncestory(currentCommit, incomingCommit)) {
             this.head.commit = incomingCommit._id;
             if (currentBranch) currentBranch.commit = this.head.commit;
             await this.database.update({ _id: this._id }, { head: this.head, branches: this.branches });
         }
-        else if (this.isAncestorCommit(incomingCommit, currentCommit)) {
+        else if (this.isCommitAncestory(incomingCommit, currentCommit)) {
             throw new Error("Branch is behind");
         }
         else if (!this.commitsLastCommonAncestor(currentCommit, incomingCommit)) {

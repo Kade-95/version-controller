@@ -7,7 +7,7 @@ export interface CommitChange extends Change {
 export interface Commit {
     _id: string;
     time: Date;
-    parents: { ancestor: string, merged?: string };
+    history: string[];
     message: string;
     changes: CommitChange[];
 }
