@@ -1,6 +1,6 @@
 import { Change, ChangeTypes } from "./changes";
 
-export function update(current: any, changes: Change[]) {
+export function rollback(current: any, changes: Change[]) {
     const temp = JSON.parse(JSON.stringify(current));
 
     const data = (block: any, at: any) => {
@@ -12,11 +12,11 @@ export function update(current: any, changes: Change[]) {
 
         for (let i = 0; i < c.path.length; i++) {
             if (i == c.path.length - 1) {
-                if (c.type == ChangeTypes.REMOVED) {
+                if (c.type == ChangeTypes.ADDED) {
                     delete attr[c.path[i]]
                 }
                 else {
-                    attr[c.path[i]] = c.after;
+                    attr[c.path[i]] = c.before;
                 }
             }
             else {

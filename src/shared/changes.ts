@@ -1,42 +1,45 @@
 export enum ChangeTypes {
-    NOT_FOUND = "Not found",
-    NOT_TYPE = "Not type",
-    NOT_EQUAL = "Not equal"
+    REMOVED = "Removed",
+    CHANGED = "Changed",
+    ADDED = "Added"
 }
 
 export interface Change {
     path: any[];
     type: ChangeTypes;
-    value: any;
+    before: any;
+    after: any;
 }
 
-export function changes(from: any, look: any = {}, options?: { path?: string[], bi?: boolean }) {
+export function getChanges(from: any, look: any, options?: { path?: string[], bi?: boolean, halphed?: boolean }) {
     const lChanges: Change[] = [];
     const path = options?.path || [];
 
+    from = from || {};
+    look = look || {};
+
     for (const i in from) {
-        if (!look.hasOwnProperty(i)) {
-            lChanges.push({ path: [...path, i], type: ChangeTypes.NOT_FOUND, value: from[i] });
-        }
-        else if (typeof from[i] !== typeof look[i]) {
-            lChanges.push({ path: [...path, i], type: ChangeTypes.NOT_TYPE, value: look[i] });
+        const after = (options?.halphed) ? from[i] : look[i];
+        const before = (options?.halphed) ? look[i] : from[i];
+
+        if (!look?.hasOwnProperty(i)) {
+            lChanges.push({ path: [...path, i], type: (options?.halphed) ? ChangeTypes.REMOVED : ChangeTypes.ADDED, before, after });
         }
         else if (typeof from[i] == "object") {
-            lChanges.push(...changes(from[i], look[i], { path: [...path, i] }));
+            lChanges.push(...getChanges(from[i], look[i], { path: [...path, i] }));
         }
         else if (from[i] !== look[i]) {
-            lChanges.push({ path: [...path, i], type: ChangeTypes.NOT_EQUAL, value: look[i] });
+            lChanges.push({ path: [...path, i], type: ChangeTypes.CHANGED, before, after });
         }
     }
 
     if (options?.bi) {
-        const rChanges = changes(look, from, { bi: false });
+        const rChanges = getChanges(look, from, { halphed: true });
 
         for (const rC of rChanges) {
-            const checked = lChanges.find(c => JSON.stringify(c.path) == JSON.stringify(rC.path));            
-            if(!checked) lChanges.push(rC);
+            const checked = lChanges.find(c => JSON.stringify(c.path) == JSON.stringify(rC.path));
+            if (!checked) lChanges.push(rC);
         }
     }
-
     return lChanges;
 }

@@ -115,7 +115,7 @@ export class LocalDB<T>{
     }
 
     updateOne(param: Partial<LocalDocument<T>>, doc: Partial<T>) {        
-        const found = this.findOne(param);
+        const found = this.findOne(param);        
         let detail = { ok: false, n: 0 };
             
         if (found) {

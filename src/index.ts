@@ -1,15 +1,26 @@
 import { Repo } from "./repo.class";
 import { Sample } from "./models/sample";
-import { changes } from "./shared/changes";
+import { getChanges } from "./shared/changes";
 import { update } from "./shared/update";
+import { LocalDB } from "./local.storage";
 
 const repo = new Repo<Sample>("Sample");
-// repo.save({ name: "Lone Ken", age: undefined, data: {a: 1, b: 24, c: 433}})
+repo.onload(async (r) => {
+    await r.checkout('main')
+    // await r.branchAndCheckout("Another");
 
-repo.stage([["name"]])
+    // repo.board = { name: "Kennedy", age: 4433212, data: { name: "What" } };
+    // repo.save();
 
-repo.commit("Initial Commit")
-console.log({ changes: repo.changes, staging: repo.staged, commits: repo.commits });
+
+    // repo.stage()
+    // await repo.commit("New Commit")
+    // repo.merge("Another");
+
+    console.log(r.details);
+
+})
+
 
 
 // const a = { name: "Lone Kendo", age: 26, data: [1, 3, 4], time: new Date() };
