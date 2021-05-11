@@ -12,7 +12,7 @@ export function update(current: any, changes: Change[]) {
 
         for (let i = 0; i < c.path.length; i++) {
             if (i == c.path.length - 1) {                
-                if (c.type == ChangeTypes.ADDED) {
+                if (c.type == ChangeTypes.REMOVED) {
                     delete attr[c.path[i]]
                 }
                 else {                    

@@ -1,6 +1,6 @@
 export enum ChangeTypes {
     REMOVED = "Removed",
-    CHANGED = "Changed",
+    MUTATED = "Mutated",
     ADDED = "Added"
 }
 
@@ -23,13 +23,13 @@ export function getChanges(from: any, look: any, options?: { path?: string[], bi
         const before = (options?.halphed) ? look[i] : from[i];
 
         if (!look?.hasOwnProperty(i)) {
-            lChanges.push({ path: [...path, i], type: (options?.halphed) ? ChangeTypes.REMOVED : ChangeTypes.ADDED, before, after });
+            lChanges.push({ path: [...path, i], type: (options?.halphed) ? ChangeTypes.ADDED : ChangeTypes.REMOVED, before, after });
         }
         else if (typeof from[i] == "object") {
             lChanges.push(...getChanges(from[i], look[i], { path: [...path, i] }));
         }
         else if (from[i] !== look[i]) {
-            lChanges.push({ path: [...path, i], type: ChangeTypes.CHANGED, before, after });
+            lChanges.push({ path: [...path, i], type: ChangeTypes.MUTATED, before, after });
         }
     }
 
