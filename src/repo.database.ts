@@ -16,8 +16,13 @@ export const updateFunction = async (params: Partial<LocalDocument<IRepo>>, data
     return await storage.updateOne(params, data);
 }
 
-export interface RepoDatabase<T> {
-    insert: (data: IRepo<T>) => Promise<LocalDocument<IRepo<T>>>,
-    read: (data: Partial<LocalDocument<IRepo>>) => Promise<IRepo<T>>,
-    update: (params: Partial<LocalDocument<IRepo>>, data: Partial<IRepo>) => Promise<any>
+export const deleteFunction = async (params: Partial<LocalDocument<IRepo>>) => {    
+    return await storage.deleteOne(params);
+}
+
+export interface RepoDatabase<T = any> {
+    insert: (data: IRepo<T>) => Promise<LocalDocument<IRepo<T>>>;
+    read: (data: Partial<LocalDocument<IRepo>>) => Promise<IRepo<T>>;
+    update: (params: Partial<LocalDocument<IRepo>>, data: Partial<IRepo>) => Promise<any>;
+    delete: (data: Partial<LocalDocument<IRepo>>) => Promise<IRepo<T>>;
 }

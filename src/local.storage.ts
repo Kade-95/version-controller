@@ -114,10 +114,10 @@ export class LocalDB<T>{
         return detail;
     }
 
-    updateOne(param: Partial<LocalDocument<T>>, doc: Partial<T>) {        
-        const found = this.findOne(param);        
+    updateOne(param: Partial<LocalDocument<T>>, doc: Partial<T>) {
+        const found = this.findOne(param);
         let detail = { ok: false, n: 0 };
-            
+
         if (found) {
             for (let i in doc) {
                 (found as any)[i] = (doc as any)[i];
@@ -129,7 +129,7 @@ export class LocalDB<T>{
                     v = found;
                 }
                 return v;
-            });            
+            });
             this.setValue(value);
         }
 
@@ -169,12 +169,14 @@ export class LocalDB<T>{
 
             let value = this.value.filter(v => {
                 let flag: boolean = true;
+                
                 if (v._id == found._id) {
                     detail.n++;
                     flag = false;
                 }
                 return flag;
             });
+
             this.setValue(value);
         }
 
