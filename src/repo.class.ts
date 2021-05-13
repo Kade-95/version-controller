@@ -66,8 +66,16 @@ export class Repo<T> implements IRepo<T> {
 
     constructor(
         public name: string,
-        readonly data: T = null
-    ) { }
+        readonly data: T = null,
+        callback = (repo: Repo<T>) => { }
+    ) {
+        this.read().then(async () => {
+            if (!this.initialized) await this.initialize();
+            this.board = JSON.parse(JSON.stringify(this.data || null));
+
+            callback(this);
+        });
+    }
 
     private isSafe() {
         // Check there are staged or commited changes
@@ -195,14 +203,6 @@ export class Repo<T> implements IRepo<T> {
         }
 
         return last;
-    }
-
-    async onload(callback = (repo: Repo<T>) => { }) {
-        await this.read();
-        if (!this.initialized) await this.initialize();
-        this.board = JSON.parse(JSON.stringify(this.data || null));
-
-        callback(this);
     }
 
     async save() {
