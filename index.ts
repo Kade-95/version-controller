@@ -1,3 +1,3 @@
-import { Repo } from "./src";
+import { Repo, IRepo } from "./src/repo.class";
 
-export { Repo };
+export { Repo, IRepo };

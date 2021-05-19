@@ -5,4 +5,3 @@ new Repo<Sample>("Sample", null, (repo: Repo<Sample>) => {
     console.log(repo);
 });
 
-export { Repo };

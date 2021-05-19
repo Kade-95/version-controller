@@ -1,8 +1,8 @@
 {
-  "name": "web_typescript",
+  "name": "vit",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "start": "npm run bundle && npm-run-all --parallel watch serve",
     "test": "echo \"Error: no test specified\" && exit 1",
