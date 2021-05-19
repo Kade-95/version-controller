@@ -4,3 +4,5 @@ import { Sample } from "./models/sample";
 new Repo<Sample>("Sample", null, (repo: Repo<Sample>) => {
     console.log(repo);
 });
+
+export { Repo };
