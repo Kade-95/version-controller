@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "axios": "^0.21.1",
+    "lonedb": "^1.0.7",
     "uuid": "^8.3.2"
   }
 }
