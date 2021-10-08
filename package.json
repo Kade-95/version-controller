@@ -1,30 +1,44 @@
 {
-  "name": "vit",
+  "name": "@thekade/version-controller",
   "version": "1.0.0",
-  "description": "",
+  "description": "A version control library",
   "main": "index.ts",
   "scripts": {
-    "start": "npm run bundle && npm-run-all --parallel watch serve",
+    "start": "npm run build && npm-run-all --parallel watch serve",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "bundle": "webpack",
+    "build": "webpack",
+    "bundle": "rollup -c",
     "watch": "webpack --watch",
     "serve": "cd dist && live-server"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "thekade",
+  "license": "MIT",
   "devDependencies": {
-    "@types/uuid": "^8.3.0",
     "live-server": "^1.2.1",
     "npm-run-all": "^4.1.5",
     "ts-loader": "^9.1.1",
     "typescript": "^4.2.4",
     "webpack": "^5.36.2",
-    "webpack-cli": "^4.6.0"
+    "webpack-cli": "^4.6.0",
+    "rollup": "^2.49.0",
+    "rollup-plugin-typescript2": "^0.30.0"
   },
   "dependencies": {
+    "@types/uuid": "^8.3.0",
     "axios": "^0.21.1",
     "lonedb": "^1.0.7",
     "uuid": "^8.3.2"
-  }
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kade-95/version-controller.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kade-95/version-controller/issues"
+  },
+  "homepage": "https://github.com/Kade-95/version-controller#readme"
 }
