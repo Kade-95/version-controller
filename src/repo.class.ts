@@ -1,45 +1,31 @@
 import { v4 as uuidV4 } from "uuid";
 import * as axios from 'axios';
 
-import { Branch } from "./models/branch.interface";
+import { Branch } from "./models/branch";
 import { Commit, CommitChange } from "./models/commit.model";
 import { deleteFunction, insertFunction, readFunction, RepoDatabase, updateFunction } from "./repo.database";
-import { Change, getChanges } from "./shared/changes";
 import { retrieve } from "./shared/retrieve";
 import { rollback } from "./shared/rollback";
 import { update } from "./shared/update";
+import { Head } from "./models/head";
+import { Change } from "./models/change";
+import { Repo } from "./models/repo";
+import { getChanges } from "./shared/getChanges";
 
-export interface RepoHead {
-    commit: string;
-    branch?: string;
-}
 
-export interface IRepo<T = any> {
-    readonly data: T;
-    readonly head: RepoHead;
-    readonly branches: Branch[];
-    readonly changes: Change[];
-    readonly staged: Change[];
-    readonly commits: Commit[];
-    readonly merged: string[];
-    readonly time: Date;
-    _id: string;
-    name: string;
-}
-
-export class Repo<T> implements IRepo<T> {
+export class Repository<T> implements Repo<T> {
     static insert = insertFunction;
     static read = readFunction;
     static update = updateFunction;
     static delete = deleteFunction;
 
-    private content: IRepo<T>;
+    private content: Repo<T>;
 
     changes: Change[] = [];
     commits: Commit[] = [];
     merged: string[] = [];
     staged: Change[] = [];
-    head: RepoHead = { commit: undefined };
+    head: Head = { commit: undefined };
     branches: Branch[] = [];
     time: Date = new Date();
     readonly _id: string;
@@ -55,13 +41,13 @@ export class Repo<T> implements IRepo<T> {
         const commit = this.commits.find(c => c._id == this.head.commit);
         const nCommits = this.commitAncestory(commit).length + 1;
         const head = this.head;
-        return { branch, nBranch, nChanges, nStaged, commit, head };
+        return { branch, nBranch, nChanges, nStaged, commit, head, nCommits };
     }
 
     static set database(database: RepoDatabase) {
-        Repo.update = database.update;
-        Repo.read = database.read;
-        Repo.insert = database.insert;
+        Repository.update = database.update;
+        Repository.read = database.read;
+        Repository.insert = database.insert;
     }
 
     constructor(
@@ -109,12 +95,12 @@ export class Repo<T> implements IRepo<T> {
     }
 
     private async insert() {
-        return await Repo.insert(this.content);
+        return await Repository.insert(this.content);
     }
 
     private async read() {
         // Read the stored content
-        this.content = await Repo.read({ name: this.name });
+        this.content = await Repository.read({ name: this.name });
 
         // Set repo with the stored content
         if (this.content) {
@@ -213,7 +199,7 @@ export class Repo<T> implements IRepo<T> {
             this.changes.push(changes[i]);
         }
 
-        await Repo.update({ _id: this._id }, { changes: this.changes, data: this.board });
+        await Repository.update({ _id: this._id }, { changes: this.changes, data: this.board });
         await this.read();
     }
 
@@ -224,7 +210,7 @@ export class Repo<T> implements IRepo<T> {
         const branch: Branch = { name, time: new Date(), commit: this.head.commit, _id: uuidV4() };
         this.branches.push(branch);
 
-        await Repo.update({ _id: this._id }, { branches: this.branches });
+        await Repository.update({ _id: this._id }, { branches: this.branches });
         return branch;
     }
 
@@ -234,7 +220,7 @@ export class Repo<T> implements IRepo<T> {
         this.isSafe();
 
         this.branches = this.branches.filter(b => b.name != name);
-        await Repo.update({ _id: this._id }, { branches: this.branches });
+        await Repository.update({ _id: this._id }, { branches: this.branches });
     }
 
     async branchAndCheckout(name: string) {
@@ -276,7 +262,7 @@ export class Repo<T> implements IRepo<T> {
         this.head.branch = incomingBranch._id;
         this.head.commit = incomingBranch.commit;
 
-        await Repo.update({ _id: this._id }, { head: this.head, data: updated });
+        await Repository.update({ _id: this._id }, { head: this.head, data: updated });
         await this.read();
 
         console.log("Checkout is successful");
@@ -307,7 +293,7 @@ export class Repo<T> implements IRepo<T> {
             }
         }
 
-        await Repo.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
+        await Repository.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
     }
 
     async commit(message: string, ancestor: string = this.head.commit, merged: string = undefined) {
@@ -334,7 +320,7 @@ export class Repo<T> implements IRepo<T> {
             return b;
         });
 
-        await Repo.update({ _id: this._id }, { commits: this.commits, staged: this.staged, head: this.head, branches: this.branches });
+        await Repository.update({ _id: this._id }, { commits: this.commits, staged: this.staged, head: this.head, branches: this.branches });
     }
 
     async revertLastCommit() {
@@ -350,7 +336,7 @@ export class Repo<T> implements IRepo<T> {
             ...changes.filter(c => !this.changes.find(a => (JSON.stringify(a.path) == JSON.stringify(c.path))))
         );
 
-        await Repo.update({ _id: this._id }, { branches: this.branches, head: this.head, changes: this.changes });
+        await Repository.update({ _id: this._id }, { branches: this.branches, head: this.head, changes: this.changes });
     }
 
     async merge(name: string) {
@@ -375,7 +361,7 @@ export class Repo<T> implements IRepo<T> {
         else if (this.isCommitAncestory(currentCommit, incomingCommit)) {
             this.head.commit = incomingCommit._id;
             if (currentBranch) currentBranch.commit = this.head.commit;
-            await Repo.update({ _id: this._id }, { head: this.head, branches: this.branches });
+            await Repository.update({ _id: this._id }, { head: this.head, branches: this.branches });
         }
         else {
             // get the changes to write
@@ -396,26 +382,30 @@ export class Repo<T> implements IRepo<T> {
             repo.name = as ? as : repo.name;
             repo._id = uuidV4();
 
-            const found = await Repo.read({ name: as });
+            const found = await Repository.read({ name: as });
             if (found) throw new Error(`Repo with name "${as}" already exists`);
 
-            await Repo.insert(repo);
+            await Repository.insert(repo);
         } catch (error) {
             throw new Error("Error fetching Repo");
         }
     }
 
     static async cloneLocal(name: string, as: string) {
-        const repo = await Repo.read({ name });
+        const repo = await Repository.read({ name });
         if (!repo) throw new Error("Repo doesn't exist locally");
 
-        const found = await Repo.read({ name: as });
+        const found = await Repository.read({ name: as });
         if (found) throw new Error(`Repo with name "${as}" already exists`);
 
         repo.name = as;
         repo._id = uuidV4();
-        await Repo.insert(repo);
+        await Repository.insert(repo);
 
         return repo;
+    }
+
+    static isRepo(repo: Repo) {
+
     }
 }

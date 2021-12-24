@@ -1,4 +1,4 @@
-import { Change } from "../shared/changes";
+import { Change } from "./change";
 
 export interface CommitChange extends Change {
     value: any;

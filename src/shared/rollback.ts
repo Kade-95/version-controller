@@ -1,4 +1,5 @@
-import { Change, ChangeTypes } from "./changes";
+import { Change } from "../models/change";
+import { ChangeTypes } from "../models/change.types";
 
 export function rollback(current: any, changes: Change[]) {
     const temp = JSON.parse(JSON.stringify(current));

@@ -1,6 +1,6 @@
 import { v4 as uuidV4 } from "uuid";
 
-import { BranchConflicts } from "./branch.conflict";
+import { Conflict } from "./conflict";
 
 export interface Branch {
     _id: string;

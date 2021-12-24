@@ -1,7 +1,8 @@
-import { Repo } from "./repo.class";
+import { Repo } from "..";
 import { Sample } from "./models/sample";
+import { Repository } from "./repo.class";
 
-new Repo<Sample>("Sample", null, (repo: Repo<Sample>) => {
+new Repository<Sample>("Sample", null, (repo: Repo<Sample>) => {
     console.log(repo);
 });
 

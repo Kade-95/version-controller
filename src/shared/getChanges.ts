@@ -1,15 +1,5 @@
-export enum ChangeTypes {
-    REMOVED = "Removed",
-    MUTATED = "Mutated",
-    ADDED = "Added"
-}
-
-export interface Change {
-    path: any[];
-    type: ChangeTypes;
-    before: any;
-    after: any;
-}
+import { Change } from "../models/change";
+import { ChangeTypes } from "../models/change.types";
 
 export function getChanges(from: any, look: any, options?: { path?: string[], bi?: boolean, halphed?: boolean }) {
     const lChanges: Change[] = [];
