@@ -1,16 +1,14 @@
 import { v4 as uuidV4 } from "uuid";
-import * as axios from 'axios';
-
-import { Branch } from "./models/branch";
-import { Commit, CommitChange } from "./models/commit.model";
+import { Branch } from "../models/branch";
+import { Commit, CommitChange } from "../models/commit.model";
 import { deleteFunction, insertFunction, readFunction, RepoDatabase, updateFunction } from "./repo.database";
-import { retrieve } from "./shared/retrieve";
-import { rollback } from "./shared/rollback";
-import { update } from "./shared/update";
-import { Head } from "./models/head";
-import { Change } from "./models/change";
-import { Repo } from "./models/repo";
-import { getChanges } from "./shared/getChanges";
+import { retrieve } from "../utils/retrieve";
+import { rollback } from "../utils/rollback";
+import { update } from "../utils/update";
+import { Head } from "../models/head";
+import { Change } from "../models/change";
+import { Repo } from "../models/repo";
+import { getChanges } from "../utils/getChanges";
 
 
 export class Repository<T> implements Repo<T> {
@@ -375,23 +373,7 @@ export class Repository<T> implements Repo<T> {
         }
     }
 
-    static async cloneUrl(url: string, as?: string) {
-        try {
-            const { data: repo } = await axios.default.get(url);
-
-            repo.name = as ? as : repo.name;
-            repo._id = uuidV4();
-
-            const found = await Repository.read({ name: as });
-            if (found) throw new Error(`Repo with name "${as}" already exists`);
-
-            await Repository.insert(repo);
-        } catch (error) {
-            throw new Error("Error fetching Repo");
-        }
-    }
-
-    static async cloneLocal(name: string, as: string) {
+    async clone(name: string, as: string) {
         const repo = await Repository.read({ name });
         if (!repo) throw new Error("Repo doesn't exist locally");
 
@@ -403,9 +385,5 @@ export class Repository<T> implements Repo<T> {
         await Repository.insert(repo);
 
         return repo;
-    }
-
-    static isRepo(repo: Repo) {
-
     }
 }
