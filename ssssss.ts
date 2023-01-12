@@ -1,35 +1,30 @@
-import { v4 as uuidV4 } from "uuid";
 import { Branch } from "../models/branch";
+import { Change } from "../models/change";
 import { Commit, CommitChange } from "../models/commit.model";
-import { deleteFunction, insertFunction, readFunction, RepoDatabase, updateFunction } from "./repo.database";
+import { Head } from "../models/head";
+import { Repo } from "../models/repo";
+import { Store } from "./repo.database";
+import { v4 as uuidV4 } from 'uuid';
 import { retrieve } from "../utils/retrieve";
+import { getChanges } from "../utils/getChanges";
 import { rollback } from "../utils/rollback";
 import { update } from "../utils/update";
-import { Head } from "../models/head";
-import { Change } from "../models/change";
-import { Repo } from "../models/repo";
-import { getChanges } from "../utils/getChanges";
 
-
-export class Repository<T> implements Repo<T> {
-    static insert = insertFunction;
-    static read = readFunction;
-    static update = updateFunction;
-    static delete = deleteFunction;
-
-    private content: Repo<T>;
+export class SSSSS<T> implements Repo<T> {
+    private store: Store = new Store();
+    private content: Repo<T> | undefined;
 
     changes: Change[] = [];
     commits: Commit[] = [];
     merged: string[] = [];
     staged: Change[] = [];
-    head: Head = { commit: undefined };
     branches: Branch[] = [];
     time: Date = new Date();
-    readonly _id: string;
+    head: Head = { };
+    readonly _id = uuidV4();
 
-    initialized: boolean;
-    board: T;
+    initialized: boolean = false;
+    board: T | undefined;
 
     get details() {
         const branch = this.branches.find(b => b._id == this.head.branch)?.name;
@@ -37,27 +32,21 @@ export class Repository<T> implements Repo<T> {
         const nChanges = this.changes.length;
         const nStaged = this.staged.length;
         const commit = this.commits.find(c => c._id == this.head.commit);
-        const nCommits = this.commitAncestory(commit).length + 1;
+        // const nCommits = this.commitAncestory(commit).length + 1;
         const head = this.head;
-        return { branch, nBranch, nChanges, nStaged, commit, head, nCommits };
-    }
-
-    static set database(database: RepoDatabase) {
-        Repository.update = database.update;
-        Repository.read = database.read;
-        Repository.insert = database.insert;
+        return { branch, nBranch, nChanges, nStaged, commit, head };
     }
 
     constructor(
         public name: string,
-        readonly data: T = null,
-        callback = (repo: Repo<T>) => { }
+        readonly data: T,
+        callback?: (repo: Repo<T>) => { }
     ) {
         this.read().then(async () => {
             if (!this.initialized) await this.initialize();
             this.board = JSON.parse(JSON.stringify(this.data || null));
 
-            callback(this);
+            if (callback) callback(this);
         });
     }
 
@@ -65,6 +54,20 @@ export class Repository<T> implements Repo<T> {
         // Check there are staged or commited changes
         if (this.details.nChanges) throw new Error("Unstaged Changes");
         if (this.details.nStaged) throw new Error("Uncommited Changes");
+    }
+
+    private async read() {
+        // Read the stored content
+        this.content = await this.store.read({ name: this.name });
+
+        // Set repo with the stored content
+        if (this.content) {
+            Object.keys(this.content).map(k => {
+                (this as any)[k] = (this.content as any)[k];
+            });
+
+            this.initialized = true;
+        }
     }
 
     private async initialize() {
@@ -88,26 +91,73 @@ export class Repository<T> implements Repo<T> {
         };
 
         //Create the repo
-        await this.insert();
+        await this.store.insert(this.content);
         this.initialized = true;
     }
 
-    private async insert() {
-        return await Repository.insert(this.content);
+    async save() {
+        const changes = getChanges(this.data, this.board, { bi: true });
+
+        for (const i in changes) {
+            this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(changes[i].path));
+            this.changes.push(changes[i]);
+        }
+
+        await this.store.update({ _id: this._id }, { changes: this.changes, data: this.board });
+        await this.read();
     }
 
-    private async read() {
-        // Read the stored content
-        this.content = await Repository.read({ name: this.name });
+    async commit(
+        message: string, 
+        ancestor: string = this.head.commit as string, 
+        merged: string | undefined = undefined
+    ) {
+        if (!this.staged.length && this.initialized) return;
 
-        // Set repo with the stored content
-        if (this.content) {
-            Object.keys(this.content).map(k => {
-                (this as any)[k] = (this.content as any)[k];
-            });
-
-            this.initialized = true;
+        let changes: CommitChange[] = [];
+        for (const s of this.staged) {
+            changes.push({ ...s, value: retrieve(this.board, s.path) })
         }
+
+        const commit: Commit = {
+            _id: uuidV4(), message, changes, ancestor, merged, time: new Date()
+        };
+
+        this.commits.push(commit);
+        this.head.commit = commit._id;
+        this.staged = [];
+
+        this.branches = this.branches.map(b => {
+            if (b._id == this.head.branch) {
+                b.commit = this.head.commit as string;
+            }
+
+            return b;
+        });
+
+        await this.store.update({ _id: this._id }, { commits: this.commits, staged: this.staged, head: this.head, branches: this.branches });
+    }
+
+    async createBranch(
+        name: string
+    ) {
+        const found = this.branches.find(b => b.name == name);
+        if (found) throw new Error(`Branch with name '${name}' already exists in this repo`);
+
+        const branch: Branch = { name, time: new Date(), commit: this.head.commit as string, _id: uuidV4() };
+        this.branches.push(branch);
+
+        await this.store.update({ _id: this._id }, { branches: this.branches });
+        return branch;
+    }
+
+    async deleteBranch(name: string) {
+        if (name == this.details.branch) throw new Error("You can not remove the active branch");
+        if (name == 'main') throw new Error("You can not remove the Main branch");
+        this.isSafe();
+
+        this.branches = this.branches.filter(b => b.name != name);
+        await this.store.update({ _id: this._id }, { branches: this.branches });
     }
 
     private commitAncestory(commit: Commit) {
@@ -117,7 +167,7 @@ export class Repository<T> implements Repo<T> {
         commit.merged && history.push(commit.merged);
 
         if (history.length) {
-            const historyCommit = history.map(h => this.commits.find(c => c._id == h));
+            const historyCommit: Commit[] = history.map(h => this.commits.find(c => c._id == h) as Commit);
 
             ancestors.push(
                 ...historyCommit,
@@ -172,7 +222,7 @@ export class Repository<T> implements Repo<T> {
         const firstHistorys = this.commitAncestory(first).reverse();
         const secondHistorys = this.commitAncestory(second).reverse();
 
-        let last: Commit;
+        let last: Commit | undefined;
         if (first._id == second._id) last = first;
         else if (this.isCommitAncestory(first, second)) last = first;
         else if (this.isCommitAncestory(second, first)) last = second;
@@ -189,38 +239,6 @@ export class Repository<T> implements Repo<T> {
         return last;
     }
 
-    async save() {
-        const changes = getChanges(this.data, this.board, { bi: true });
-
-        for (const i in changes) {
-            this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(changes[i].path));
-            this.changes.push(changes[i]);
-        }
-
-        await Repository.update({ _id: this._id }, { changes: this.changes, data: this.board });
-        await this.read();
-    }
-
-    async createBranch(name: string) {
-        const found = this.branches.find(b => b.name == name);
-        if (found) throw new Error(`Branch with name '${name}' already exists in this repo`);
-
-        const branch: Branch = { name, time: new Date(), commit: this.head.commit, _id: uuidV4() };
-        this.branches.push(branch);
-
-        await Repository.update({ _id: this._id }, { branches: this.branches });
-        return branch;
-    }
-
-    async deleteBranch(name: string) {
-        if (name == this.details.branch) throw new Error("You can not remove the active branch");
-        if (name == 'main') throw new Error("You can not remove the Main branch");
-        this.isSafe();
-
-        this.branches = this.branches.filter(b => b.name != name);
-        await Repository.update({ _id: this._id }, { branches: this.branches });
-    }
-
     async branchAndCheckout(name: string) {
         await this.createBranch(name);
         this.checkout(name);
@@ -231,19 +249,19 @@ export class Repository<T> implements Repo<T> {
         this.isSafe();
 
         // get current and incoming branches
-        const currentBranch = this.branches.find(b => b._id == this.head.branch);
-        const incomingBranch = this.branches.find(b => b.name == name);
+        const currentBranch = this.branches.find(b => b._id == this.head.branch) as Branch;
+        const incomingBranch = this.branches.find(b => b.name == name) as Branch;
 
         // check if incoming branch is existing
         if (!incomingBranch) throw new Error("Unknown branch");
         console.log(`Checkout from ${currentBranch.name} to ${incomingBranch.name}`);
 
         //get current commit and incoming commits
-        const currentCommit = this.commits.find(c => c._id == currentBranch.commit);
-        const incomingCommit = this.commits.find(c => c._id == incomingBranch.commit);
+        const currentCommit = this.commits.find(c => c._id == currentBranch.commit) as Commit;
+        const incomingCommit = this.commits.find(c => c._id == incomingBranch.commit) as Commit;
 
         // get last commits ancestor
-        const lastCommitAncestor = this.commitsLastCommonAncestor(currentCommit, incomingCommit);
+        const lastCommitAncestor = this.commitsLastCommonAncestor(currentCommit, incomingCommit) as Commit;
 
         // get the changes to revert and to write
         const reverts = this.commitHistoryTillAncestor(currentCommit, lastCommitAncestor);
@@ -260,7 +278,7 @@ export class Repository<T> implements Repo<T> {
         this.head.branch = incomingBranch._id;
         this.head.commit = incomingBranch.commit;
 
-        await Repository.update({ _id: this._id }, { head: this.head, data: updated });
+        await this.store.update({ _id: this._id }, { head: this.head, data: updated });
         await this.read();
 
         console.log("Checkout is successful");
@@ -291,42 +309,15 @@ export class Repository<T> implements Repo<T> {
             }
         }
 
-        await Repository.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
-    }
-
-    async commit(message: string, ancestor: string = this.head.commit, merged: string = undefined) {
-        if (!this.staged.length && this.initialized) return;
-
-        let changes: CommitChange[] = [];
-        for (const s of this.staged) {
-            changes.push({ ...s, value: retrieve(this.board, s.path) })
-        }
-
-        const commit: Commit = {
-            _id: uuidV4(), message, changes, ancestor, merged, time: new Date()
-        };
-
-        this.commits.push(commit);
-        this.head.commit = commit._id;
-        this.staged = [];
-
-        this.branches = this.branches.map(b => {
-            if (b._id == this.head.branch) {
-                b.commit = this.head.commit;
-            }
-
-            return b;
-        });
-
-        await Repository.update({ _id: this._id }, { commits: this.commits, staged: this.staged, head: this.head, branches: this.branches });
+        await this.store.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
     }
 
     async revertLastCommit() {
         const { commit } = this.details;
-        const { changes, ancestor } = commit;
+        const { changes, ancestor } = commit as Commit;
 
         if (!ancestor) throw new Error("No previous commit found");
-        const branch = this.branches.find(b => b._id == this.head.branch);
+        const branch = this.branches.find(b => b._id == this.head.branch) as Branch;
 
         branch.commit = ancestor;
         this.head.commit = ancestor;
@@ -334,7 +325,7 @@ export class Repository<T> implements Repo<T> {
             ...changes.filter(c => !this.changes.find(a => (JSON.stringify(a.path) == JSON.stringify(c.path))))
         );
 
-        await Repository.update({ _id: this._id }, { branches: this.branches, head: this.head, changes: this.changes });
+        await this.store.update({ _id: this._id }, { branches: this.branches, head: this.head, changes: this.changes });
     }
 
     async merge(name: string) {
@@ -342,9 +333,9 @@ export class Repository<T> implements Repo<T> {
         const incomingBranch = this.branches.find(b => b.name == name);
         if (!incomingBranch) throw new Error("Unknown branch");
 
-        const currentCommit = this.commits.find(c => c._id == this.head.commit);
-        const incomingCommit = this.commits.find(c => c._id == incomingBranch.commit);
-        const lastCommitAncestor = this.commitsLastCommonAncestor(currentCommit, incomingCommit)
+        const currentCommit = this.commits.find(c => c._id == this.head.commit) as Commit;
+        const incomingCommit = this.commits.find(c => c._id == incomingBranch.commit) as Commit;
+        const lastCommitAncestor = this.commitsLastCommonAncestor(currentCommit, incomingCommit) as Commit;
 
         if (!lastCommitAncestor) {
             throw new Error("Branch is not related");
@@ -359,7 +350,7 @@ export class Repository<T> implements Repo<T> {
         else if (this.isCommitAncestory(currentCommit, incomingCommit)) {
             this.head.commit = incomingCommit._id;
             if (currentBranch) currentBranch.commit = this.head.commit;
-            await Repository.update({ _id: this._id }, { head: this.head, branches: this.branches });
+            await this.store.update({ _id: this._id }, { head: this.head, branches: this.branches });
         }
         else {
             // get the changes to write
@@ -373,16 +364,16 @@ export class Repository<T> implements Repo<T> {
         }
     }
 
-    async clone(name: string, as: string) {
-        const repo = await Repository.read({ name });
+    async clone(target: string, name: string) {
+        const repo = await this.store.read({ name: target });
         if (!repo) throw new Error("Repo doesn't exist locally");
 
-        const found = await Repository.read({ name: as });
-        if (found) throw new Error(`Repo with name "${as}" already exists`);
+        const found = await this.store.read({ name });
+        if (found) throw new Error(`Repo with name "${name}" already exists`);
 
-        repo.name = as;
+        repo.name = name;
         repo._id = uuidV4();
-        await Repository.insert(repo);
+        await this.store.insert(repo);
 
         return repo;
     }

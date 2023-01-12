@@ -1,4 +1,4 @@
-export enum Conflict {
+export enum ConflictEnum {
     NO_CONFLICT = "No Conflict",
     ORIGIN_MISMATCH = "Origin Mismatch",
     UNRESOLVED_CONFLICT = "Unresolved Conflict",
@@ -7,7 +7,7 @@ export enum Conflict {
 }
 
 export const NeverMerge = [
-    Conflict.ORIGIN_MISMATCH,
-    Conflict.UNRESOLVED_CONFLICT,
-    Conflict.AHEAD_OF_INCOMING
+    ConflictEnum.ORIGIN_MISMATCH,
+    ConflictEnum.UNRESOLVED_CONFLICT,
+    ConflictEnum.AHEAD_OF_INCOMING
 ]

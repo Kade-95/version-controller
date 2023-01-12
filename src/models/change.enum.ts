@@ -1,4 +1,4 @@
-export enum ChangeTypes {
+export enum ChangeEnum {
     REMOVED = "Removed",
     MUTATED = "Mutated",
     ADDED = "Added"

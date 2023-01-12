@@ -15,8 +15,8 @@
     "watch": "webpack --watch",
     "serve": "cd dist && live-server",
     "docs": "npx typedoc --out docs src && cd docs && live-server",
-    "test": "env TS_NODE_PROJECT=\"tsconfig.testing.json\" mocha --require ts-node/register 'test/**/*.ts'",
-    "test:wait": "npm run test -- --watch -- --watch-extensions ts,test.ts"
+    "test": "env TS_NODE_PROJECT=\"tsconfig.testing.json\" mocha",
+    "test:wait": "npm test -- --watch"
   },
   "keywords": [],
   "author": "black-ink",
