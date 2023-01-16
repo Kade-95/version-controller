@@ -1,7 +1,7 @@
-import { Change } from "../models/change";
-import { ChangeTypes } from "../models/change.types";
+import { IChange } from "../models/change.interface";
+import { ChangeEnum } from "../models/change.enum";
 
-export function update(current: any, changes: Change[]) {
+export function rollback(current: any, changes: IChange[]) {
     const temp = JSON.parse(JSON.stringify(current));
 
     const data = (block: any, at: any) => {
@@ -12,12 +12,12 @@ export function update(current: any, changes: Change[]) {
         let attr = temp;
 
         for (let i = 0; i < c.path.length; i++) {
-            if (i == c.path.length - 1) {                
-                if (c.type == ChangeTypes.REMOVED) {
+            if (i == c.path.length - 1) {
+                if (c.type == ChangeEnum.ADDED) {
                     delete attr[c.path[i]]
                 }
-                else {                    
-                    attr[c.path[i]] = c.after;
+                else {
+                    attr[c.path[i]] = c.before;
                 }
             }
             else {

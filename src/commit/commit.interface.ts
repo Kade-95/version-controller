@@ -1,4 +1,4 @@
-import { IChange } from "../models/change";
+import { IChange } from "../models/change.interface";
 
 export interface ICommitChange extends IChange {
     value: any;

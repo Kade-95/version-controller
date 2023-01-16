@@ -1,7 +1,7 @@
 import { Repository } from "../repository/repository.class";
 import { v4 as uuidV4 } from 'uuid';
 import { Store } from "../store/store.class";
-import { retrieve } from "../utils/retrieve";
+import { retrieve } from "../change/retrieve";
 import { ICommit, ICommitChange } from "./commit.interface";
 
 export class Commit implements ICommit {
@@ -53,6 +53,72 @@ export class Commit implements ICommit {
             ancestors = [...ancestors, ...historyCommits];            
         }
         return ancestors;
+    }
+
+    equals(commit: ICommit){
+        return this._id === commit._id;
+    }
+
+    async isAncestor(
+        commit: Commit
+    ){
+        const childAncestory = await commit.ancestory();
+        return !!childAncestory.find(a => a._id == this._id);
+    }
+
+    async lastCommonAncestor(
+        commit: Commit
+    ){
+        const myHistory = (await this.ancestory()).reverse();
+        const commitHistory = (await commit.ancestory()).reverse();
+
+        let last: Commit | undefined;
+        if (this.equals(commit)) last = this;
+        else if(await this.isAncestor(commit)) last = this;
+        else if(await commit.isAncestor(this)) last = commit;
+        else {
+            for (const a of myHistory){
+                for (const b of commitHistory){
+                    if (a.equals(b)) {
+                        last = a;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return last;
+    }
+
+    async listCommitsTillAncestor(
+        ancestor: Commit
+    ){
+        const commits: Commit[] = [];
+
+        if (!ancestor.isAncestor(this) && !this.equals(ancestor)){
+            return [];
+        }
+
+        commits.push(this);
+        const ancestors = await this.ancestory();
+        const ancestorIndex = ancestors.findIndex(a => a.equals(ancestor));
+        const tillAncestor = ancestors.slice(0, ancestorIndex + 1);
+        commits.push(...tillAncestor);
+
+        return commits;
+    }
+
+    async changesTillAncestor(
+        ancestor: Commit
+    ){
+        const ancestors = await this.listCommitsTillAncestor(ancestor);
+
+        const changes: ICommitChange[] = ancestors.slice(0, ancestors.length)
+            .reduce((acc: ICommitChange[], red: Commit) => {
+                return [...acc, ...red.changes];
+            }, []);
+
+        return changes;
     }
 
     static async create(

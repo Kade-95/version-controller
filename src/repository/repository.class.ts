@@ -7,7 +7,7 @@ import { IChange } from "../models/change.interface";
 import { IBranch } from "../branch/branch.interface";
 import { ICommit } from "../commit/commit.interface";
 import { Commit } from "../commit/commit.class";
-import { getChanges } from "../utils/getChanges";
+import { getChanges } from "../change/getChanges";
 
 export class Repository<T> implements IRepository<T>{
     
@@ -54,7 +54,7 @@ export class Repository<T> implements IRepository<T>{
         if (callback) callback(null, this);  
     }
 
-    private async read() {
+    async read() {
         // Read the stored content
         this.content = await this.store.read({ name: this.name });    
         if (!this.content) {
