@@ -16,6 +16,7 @@ export class Repository<T> implements IRepository<T>{
     defaultBranch = 'main';
     head: IHead = { };
     board: T | undefined;
+    readonly data: T;
     
     changes: IChange[] = [];
     staged: IChange[] = [];
@@ -36,56 +37,34 @@ export class Repository<T> implements IRepository<T>{
 
     constructor(
         public name: string,
-        readonly data: T,
-        callback?: (error: any, repo: Repository<T>) => { }
+        data?: T,
+        callback?: (repo: Repository<T>) => void
     ) {
+        this.data = data as T;
         this.store = new Store(name, 'repo');
         this.branchStore = new Store(name, 'branches');
         this.commitStore = new Store(name, 'commits');
-
+        
         this.setup(callback);
     }
 
     private async setup(
         callback: any
     ){
-        await this.read()
+        await this.read();
         this.board = JSON.parse(JSON.stringify(this.data || null));
-        if (callback) callback(null, this);  
+
+        if (callback) callback(this);  
     }
 
     async read() {
         // Read the stored content
-        this.content = await this.store.read({ name: this.name });    
-        if (!this.content) {
-           await this.initialize();
-        }    
-
+        this.content = await this.store.read({ name: this.name });              
         // Set repo with the stored content
-        Object.keys(this.content as object).map(k => {
+        Object.keys((this.content || {})).map(k => {
             (this as any)[k] = (this.content as any)[k];
-        });    
-    }
-
-    private async initialize() {                
-        //Initialize repo with first commit, branch and the head, then checkout the branch and commit
-        await Commit.create(this, "Initial Commit", this.head.commit as string);                
-        const branch = await Branch.create(this, this.defaultBranch);            
-        this.head.branch = branch._id;
-
-        //Set the initial content
-        this.content = {
-            _id: uuidV4(),
-            name: this.name,
-            head: this.head,
-            data: this.data,
-            staged: this.staged,
-            changes: this.changes,
-            defaultBranch: this.defaultBranch
-        };        
-
-        //Create the repo
-        await this.store.insert(this.content);        
+        });     
+        return this.content;       
     }
 
     safetyCheck() {
@@ -132,5 +111,39 @@ export class Repository<T> implements IRepository<T>{
         }
 
         await this.store.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
+    }
+
+    async delete(){
+        await this.store.delete({ _id: this._id });
+    }
+
+    static async create<T>(
+        name: string,
+        data: T
+    ){
+        const repo = new Repository(name, data);
+        await Commit.create(repo, "Initial Commit", repo.head.commit as string); 
+                       
+        const branch = await Branch.create(repo, repo.defaultBranch);            
+        repo.head.branch = branch._id;        
+
+        await repo.store.insert({
+            _id: uuidV4(),
+            name: repo.name,
+            head: repo.head,
+            data: repo.data,
+            staged: repo.staged,
+            changes: repo.changes,
+            defaultBranch: repo.defaultBranch
+        });
+
+        return Repository.from<T>(name);
+    }
+
+    static from<T>(
+        name: string, 
+        data?: T
+    ){
+        return new Promise<Repository<T>>((res) => new Repository(name, data, res));
     }
 }

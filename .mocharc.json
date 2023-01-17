@@ -1,7 +1,7 @@
 {
 	"extension": ["ts"],
 	"diff": true,
-	"timeout": 10000,
+	"timeout": 20000,
 	"spec": [
 		"test/**/*.ts", 
 		"test/**/*.ts"

@@ -30,7 +30,7 @@ export class Branch implements IBranch {
 
     private async read(){
         this.content = await this.store.read({ name: this.name });
-        Object.keys(this.content as object).map(k => {
+        Object.keys(this.content || {}).map(k => {
             (this as any)[k] = (this.content as any)[k];
         });
     }

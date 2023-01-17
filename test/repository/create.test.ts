@@ -7,19 +7,29 @@ let repository: Repository<Sample>;
 const data: Sample = { name: 'Name', age: 20 };
 
 describe('Create Repository', () => {
-    before(() => {
-        repository = new Repository('Sample', {...data});
+    beforeEach(async () => {
+        repository = await Repository.create<Sample>('Sample', {...data});
     });
 
-    afterEach(() => {
-        // repository.;
+    afterEach(async () => {
+        await repository.delete();
     });
 
-    after(() => {
-        // database.drop();
+    it('should be able to create new repository instance', () => {        
+        expect(repository instanceof Repository).to.equal(true);
     });
 
-    it('should be able to create a new Database', () => {
-        expect(repository).to.deep.include({ name: 'Sample' })
+    it('should create an new repository', () => {                
+        expect(repository).to.deep.include({
+            name: 'Sample',
+            data,
+            staged: [],
+            changes: []
+        });
+    });
+
+    it('should be instantiate repository when it already exists', async () => {    
+        const repo = await Repository.from('Sample');            
+        expect(repo.data).to.deep.include(data);
     });
 });

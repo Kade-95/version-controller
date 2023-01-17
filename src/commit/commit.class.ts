@@ -25,14 +25,14 @@ export class Commit implements ICommit {
 
     private async setup(
         callback: any
-    ){
-        await this.read()
+    ){        
+        await this.read();
         if (callback) callback(this);
     }
 
     private async read(){
         this.content = await this.store.read({ _id: this._id });
-        Object.keys(this.content as object).map(k => {
+        Object.keys(this.content || {}).map(k => {
             (this as any)[k] = (this.content as any)[k];
         });
     }
@@ -139,11 +139,11 @@ export class Commit implements ICommit {
         };
 
         repo.head.commit = data._id;
-        repo.staged = [];
+        repo.staged = [];        
 
         await repo.branchStore.update({ _id: repo.head.branch }, { commit: data._id });
         await repo.commitStore.insert(data); 
-
+        
         return Commit.from(repo, data._id);
     }
 
