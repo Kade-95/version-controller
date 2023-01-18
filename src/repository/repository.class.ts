@@ -6,7 +6,6 @@ import { Branch } from "../branch/branch.class";
 import { IChange } from "../models/change.interface";
 import { IBranch } from "../branch/branch.interface";
 import { ICommit } from "../commit/commit.interface";
-import { Commit } from "../commit/commit.class";
 import { getChanges } from "../change/getChanges";
 
 export class Repository<T> implements IRepository<T>{
@@ -59,18 +58,19 @@ export class Repository<T> implements IRepository<T>{
 
     async read() {
         // Read the stored content
-        this.content = await this.store.read({ name: this.name });              
+        this.content = await this.store.read({ name: this.name });                      
         // Set repo with the stored content
         Object.keys((this.content || {})).map(k => {
             (this as any)[k] = (this.content as any)[k];
         });     
+
         return this.content;       
     }
 
     safetyCheck() {
         // Check there are staged or commited changes
-        if (!!this.changes.length) throw new Error("Unstaged Changes");
-        if (!!this.staged.length) throw new Error("Uncommited Changes");
+        if (!!this.changes.length) throw new Error("Branch unsafe, active changes");
+        if (!!this.staged.length) throw new Error("Branch unsafe, active staged changes");
     }
 
     async save(){
@@ -113,18 +113,19 @@ export class Repository<T> implements IRepository<T>{
         await this.store.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
     }
 
-    async delete(){
-        await this.store.delete({ _id: this._id });
+    delete(){
+        this.store.repo.drop();
+        this.content = undefined;
     }
 
     static async create<T>(
         name: string,
         data: T
     ){
-        const repo = new Repository(name, data);
-        await Commit.create(repo, "Initial Commit", repo.head.commit as string); 
-                       
-        const branch = await Branch.create(repo, repo.defaultBranch);            
+        const repo = new Repository(name, data);                       
+        const branch = await Branch.create(repo, repo.defaultBranch);
+        await branch.commit("Initial Commit"); 
+
         repo.head.branch = branch._id;        
 
         await repo.store.insert({

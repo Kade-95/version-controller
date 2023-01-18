@@ -1,7 +1,7 @@
 import { IChange } from "../models/change.interface";
 import { ChangeEnum } from "../models/change.enum";
 
-export function update(current: any, changes: IChange[]) {
+export function update(current: any, changes: IChange[]) {    
     const temp = JSON.parse(JSON.stringify(current));
 
     const data = (block: any, at: any) => {

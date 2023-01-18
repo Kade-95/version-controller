@@ -1,5 +1,4 @@
 import { Repository } from "../repository/repository.class";
-import { v4 as uuidV4 } from 'uuid';
 import { Store } from "../store/store.class";
 import { retrieve } from "../change/retrieve";
 import { ICommit, ICommitChange } from "./commit.interface";
@@ -12,11 +11,10 @@ export class Commit implements ICommit {
     message: string = ''; 
     ancestor: string = '';
     merged?: string;
-    _id?: string;
 
     constructor(
         private repo: Repository<any>,
-        _id: string,
+        public _id: string,
         callback?: (branch: Commit) => void
     ) {
         this.store = new Store(this.repo.name, 'commits');        
@@ -135,22 +133,23 @@ export class Commit implements ICommit {
         }
 
         const data = {
-            _id: uuidV4(), message: message, changes, ancestor: ancestor, merged: merged
+            message: message, changes, ancestor: ancestor, merged: merged
         };
+        const commit = await repo.commitStore.insert(data); 
 
-        repo.head.commit = data._id;
+        repo.head.commit = commit._id;
         repo.staged = [];        
-
-        await repo.branchStore.update({ _id: repo.head.branch }, { commit: data._id });
-        await repo.commitStore.insert(data); 
-        
-        return Commit.from(repo, data._id);
+                
+        return Commit.from(repo, commit._id);
     }
 
-    static from(
+    static async from(
         repo: Repository<any>,
         _id: string
     ){
+        const exists = await repo.commitStore.read({ _id });
+        if (!exists) throw new Error("Commit does not exist");
+
         return new Promise<Commit>((res, _) => new Commit(repo, _id, res));
     }
 }

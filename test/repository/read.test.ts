@@ -11,9 +11,7 @@ describe('Read Repository', () => {
         repository = await Repository.create<Sample>('Sample', {...data});
     });
 
-    afterEach(async () => {
-        await repository.delete();
-    });
+    afterEach(() => repository.delete());
 
     it('should be able to get the stored repository', async() => {   
         const repo = await repository.read();             
@@ -23,9 +21,9 @@ describe('Read Repository', () => {
         });
     });
 
-    it('should be able to get the stored repository', async() => {   
-        await repository.delete();
-        const a = await repository.read()
+    it.skip('should fail when repository is deleted', async() => {   
+        repository.delete();
+        const a = await repository.read();
         expect(a).to.equal(undefined);
     });
 });

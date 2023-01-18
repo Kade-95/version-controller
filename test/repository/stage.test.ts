@@ -12,9 +12,7 @@ describe('Stage Repository', () => {
         repository = await Repository.create<Sample>('Sample', {...data});
     });
 
-    afterEach(async () => {
-        await repository.delete();
-    });
+    afterEach(() => repository.delete());
 
     it('should stage nothing when no changes where made', async() => {   
         await repository.save(); 

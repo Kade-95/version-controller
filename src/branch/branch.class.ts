@@ -10,7 +10,7 @@ export class Branch implements IBranch {
     private content: IBranch | undefined;
 
     _id?: string ;
-    commit?: string;
+    commit_id?: string;
 
     constructor(
         public repo: Repository<any>,
@@ -24,18 +24,21 @@ export class Branch implements IBranch {
     private async setup(
         callback: any
     ){
-        await this.read()
+        await this.read();
         if (callback) callback(this);
     }
 
-    private async read(){
-        this.content = await this.store.read({ name: this.name });
+    async read(){
+        this.content = await this.store.read({ name: this.name });    
+            
         Object.keys(this.content || {}).map(k => {
             (this as any)[k] = (this.content as any)[k];
         });
+
+        return this.content;
     }
 
-    async remove(){
+    async delete(){
         const activeBranch = (await this.repo.branch) as IBranch;
         if (activeBranch.name === this.name) throw new Error("You can not remove the active branch");
         if (this.name == this.repo.defaultBranch) throw new Error("You can not remove the default branch");
@@ -51,11 +54,9 @@ export class Branch implements IBranch {
         const currentCommit = await currentBranch.getCommit();
 
         const commit = await this.getCommit();
-
         const lastCommonAncestor = await currentCommit.lastCommonAncestor(commit) as Commit;
 
         const currentChanges = await currentCommit.changesTillAncestor(lastCommonAncestor);
-
         const changes = await commit.changesTillAncestor(lastCommonAncestor);
 
         console.log(`Rolling back ${currentChanges.length} changes`);
@@ -64,28 +65,37 @@ export class Branch implements IBranch {
         console.log(`Writting back ${changes.length} changes`);
         const data = update(reverts, changes);
 
-        await this.repo.store.update({ _id: this.repo._id }, { head: { branch: this._id, commit: this.commit }, data });
+        await this.repo.store.update({ _id: this.repo._id }, { head: { branch: this._id, commit: this.commit_id }, data });
         await this.repo.read();
 
         console.log("Checkout is successful");
     }
 
     async getCommit(){
-        const commit = await this.repo.commitStore.read({ _id: this.commit }) as Commit;
+        const commit = await this.repo.commitStore.read({ _id: this.commit_id }) as Commit;        
         return Commit.from(this.repo, commit._id as string);
+    }
+
+    async commit(
+        message: string
+    ){
+        const commit = await Commit.create(this.repo, message, this.commit_id as string) as Commit;
+        await this.store.update({ _id: this._id }, { commit_id: commit._id });
+        await this.read();
+        return commit;
     }
 
     async revertLastCommit(){
         const { changes: commitChanges, ancestor } = await this.getCommit();
         if (!ancestor) throw new Error("No previous commit found");
 
-        this.commit = ancestor;
+        this.commit_id = ancestor;
         const changes = commitChanges.filter(c => !this.repo.changes.find(a => (
             JSON.stringify(a.path) === JSON.stringify(c.path)
         )));
         this.repo.changes.push(...changes);
 
-        const head = { commit: this.commit, branch: this._id };
+        const head = { commit: this.commit_id, branch: this._id };
 
         this.repo.store.update({ _id: this.repo._id }, { head, changes: this.repo.changes })
     }
@@ -93,9 +103,8 @@ export class Branch implements IBranch {
     async merge(
         name: string
     ){
-        const incomingBranch = await Branch.from(this.repo, name);
+        const incomingBranch = await Branch.from(this.repo, name);    
         const incomingCommit = await incomingBranch.getCommit();
-        if (!incomingBranch) throw new Error("Unknown branch");
 
         const commit = await this.getCommit();
         const lastCommonAncestor = await incomingCommit.lastCommonAncestor(commit);
@@ -114,7 +123,7 @@ export class Branch implements IBranch {
             await this.repo.store.update({ _id: this.repo._id }, {
                 head: { ...this.repo.head, commit: incomingCommit._id }
             });
-            await this.store.update({ _id: this._id }, { commit: incomingCommit._id });
+            await this.store.update({ _id: this._id }, { commit_id: incomingCommit._id });
             await this.read();
             await this.repo.read();
         }
@@ -133,17 +142,24 @@ export class Branch implements IBranch {
         repo: Repository<any>,
         name: string
     ){
+        const existing = await repo.branchStore.read({ name });
+        if (existing) throw new Error('Branch already exists');
+
         const currentCommit = repo.head.commit;
-        await repo.branchStore.insert({ name, commit: currentCommit });
+        await repo.branchStore.insert({ name, commit_id: currentCommit });
 
         return Branch.from(repo, name);
     }
 
-    static from(
+    static async from(
         repo: Repository<any>,
         name: string
     ){
-        return new Promise<Branch>((res) => new Branch(repo, name, res));
+        const exists = await repo.branchStore.read({ name });
+        if (!exists) throw new Error("Branch does not exist");
+
+        const branch = new Promise<Branch>((res) => new Branch(repo, name, res));
+        return branch;
     }
 
     static async checkout(

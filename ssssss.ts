@@ -267,8 +267,6 @@ export class SSSSS<T> implements Repo<T> {
         const reverts = this.commitHistoryTillAncestor(currentCommit, lastCommitAncestor);
         const changes = this.commitHistoryTillAncestor(incomingCommit, lastCommitAncestor).reverse();
 
-        console.log({ reverts, changes });
-
         console.log(`Rolling back ${reverts.length} changes`);
         const reverted = rollback(this.data, reverts);
 

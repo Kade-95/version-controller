@@ -12,9 +12,7 @@ describe('Save Repository', () => {
         repository = await Repository.create<Sample>('Sample', {...data});
     });
 
-    afterEach(async () => {
-        await repository.delete();
-    });
+    afterEach(() => repository.delete());
 
     it('should be able to save changes in the repository data', async() => {   
         repository.board = { ...repository.board, age: 19 } as Sample;

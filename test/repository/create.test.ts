@@ -11,9 +11,7 @@ describe('Create Repository', () => {
         repository = await Repository.create<Sample>('Sample', {...data});
     });
 
-    afterEach(async () => {
-        await repository.delete();
-    });
+    afterEach(() => repository.delete());
 
     it('should be able to create new repository instance', () => {        
         expect(repository instanceof Repository).to.equal(true);
