@@ -28,11 +28,13 @@ export class Commit implements ICommit {
         if (callback) callback(this);
     }
 
-    private async read(){
+    async read(){
         this.content = await this.store.read({ _id: this._id });
         Object.keys(this.content || {}).map(k => {
             (this as any)[k] = (this.content as any)[k];
         });
+
+        return this.content;
     }
 
     async ancestory(){
@@ -91,9 +93,8 @@ export class Commit implements ICommit {
     async listCommitsTillAncestor(
         ancestor: Commit
     ){
-        const commits: Commit[] = [];
-
-        if (!ancestor.isAncestor(this) && !this.equals(ancestor)){
+        const commits: Commit[] = [];        
+        if (!await ancestor.isAncestor(this) && !this.equals(ancestor)){
             return [];
         }
 

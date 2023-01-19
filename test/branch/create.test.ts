@@ -29,4 +29,8 @@ describe('Create Branch', () => {
         const b = await Branch.from(repository, 'sample');
         expect(b).to.deep.include({ name: 'sample', _id: branch._id });
     });
+
+    it('should fail when branch with name does not exist', async () => {   
+        await assert.rejects(Branch.from(repository, 'another'), { name: 'Error', message: 'Branch does not exist'});        
+    });
 });
