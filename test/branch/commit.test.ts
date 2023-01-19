@@ -19,7 +19,7 @@ describe('Commit branch', () => {
     it('should commit changes to branch', async () => {         
         await branch.checkout();
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         
         const commit = await branch.commit('A commit');

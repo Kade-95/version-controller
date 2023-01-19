@@ -7,6 +7,7 @@ import { IChange } from "../models/change.interface";
 import { IBranch } from "../branch/branch.interface";
 import { ICommit } from "../commit/commit.interface";
 import { getChanges } from "../change/getChanges";
+import { rollback } from "../change/rollback";
 
 export class Repository<T> implements IRepository<T>{
     
@@ -67,21 +68,42 @@ export class Repository<T> implements IRepository<T>{
         return this.content;       
     }
 
-    safetyCheck() {
-        // Check there are staged or commited changes
-        if (!!this.changes.length) throw new Error("Branch unsafe, active changes");
-        if (!!this.staged.length) throw new Error("Branch unsafe, active staged changes");
-    }
+    async add(paths?: string[][]){
+        const changes = getChanges(this.data, this.board, { bi: true });        
+        paths = paths 
+        ? paths 
+        : changes.map(change => change.path);        
 
-    async save(){
-        const changes = getChanges(this.data, this.board, { bi: true });
-
-        for (const i in changes) {
-            this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(changes[i].path));
-            this.changes.push(changes[i]);
+        for (const path of paths) {
+            const change = changes.find(c => JSON.stringify(c.path) == JSON.stringify(path)) as IChange;            
+            if (change){
+                this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(path));
+                this.changes.push(change);
+            }
         }
 
         await this.store.update({ _id: this._id }, { changes: this.changes, data: this.board });
+        await this.read();
+    }
+
+    async revert(paths?: string[][]) {
+        if (!this.changes.length) return;
+        paths = paths 
+            ? paths 
+            : this.changes.map(stage => stage.path);    
+            
+        const changes: IChange[] = [];
+
+        for (const path of paths) {
+            const change = this.changes.find(c => JSON.stringify(c.path) == JSON.stringify(path)) as IChange;            
+            if (change){
+                this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(path));
+                changes.push(change);
+            }
+        }
+
+        const data = rollback(this.data, changes);
+        await this.store.update({ _id: this._id }, { changes: this.changes, data });
         await this.read();
     }
 
@@ -91,26 +113,47 @@ export class Repository<T> implements IRepository<T>{
         // There for paths is a list of strings or a list of list of strings
 
         if (!this.changes.length) return;
+        paths = paths 
+            ? paths 
+            : this.changes.map(change => change.path);        
 
-        if (paths) {
-            for (const path of paths) {
-                const change = this.changes.find(c => JSON.stringify(c.path) == JSON.stringify(path));
-                if (change) {
-                    this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(change.path));
-                    this.staged = this.staged.filter(c => JSON.stringify(c.path) != JSON.stringify(change.path));
-                    this.staged.push(change);
-                }
-            }
-        }
-        else {
-            for (const change of this.changes) {
-                this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(change.path));
-                this.staged = this.staged.filter(c => JSON.stringify(c.path) != JSON.stringify(change.path));
+        for (const path of paths) {
+            const change = this.changes.find(c => JSON.stringify(c.path) == JSON.stringify(path));
+            if (change) {
+                this.changes = this.changes.filter(c => JSON.stringify(c.path) != JSON.stringify(path));
+                this.staged = this.staged.filter(c => JSON.stringify(c.path) != JSON.stringify(path));
                 this.staged.push(change);
             }
         }
 
         await this.store.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
+        await this.read();
+    }
+
+    async unstage(paths?: string[][]) {
+        if (!this.staged.length) return;
+        paths = paths 
+            ? paths 
+            : this.staged.map(stage => stage.path);             
+
+        for (const path of paths) {
+            const stage = this.staged.find(c => JSON.stringify(c.path) == JSON.stringify(path));
+            const change = this.changes.find(c => JSON.stringify(c.path) == JSON.stringify(path));              
+
+            if (stage && !change) {
+                this.staged = this.staged.filter(c => JSON.stringify(c.path) != JSON.stringify(path));
+                this.changes.push(stage);
+            }
+        }
+
+        await this.store.update({ _id: this._id }, { staged: this.staged, changes: this.changes });
+        await this.read();
+    }
+
+    safetyCheck() {
+        // Check there are staged or commited changes
+        if (!!this.changes.length) throw new Error("Branch unsafe, active changes");
+        if (!!this.staged.length) throw new Error("Branch unsafe, active staged changes");
     }
 
     delete(){

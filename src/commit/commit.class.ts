@@ -148,7 +148,7 @@ export class Commit implements ICommit {
         repo: Repository<any>,
         _id: string
     ){
-        const exists = await repo.commitStore.read({ _id });
+        const exists = await repo.commitStore.read({ _id });        
         if (!exists) throw new Error("Commit does not exist");
 
         return new Promise<Commit>((res, _) => new Commit(repo, _id, res));

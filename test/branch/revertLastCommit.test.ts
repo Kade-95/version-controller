@@ -24,7 +24,7 @@ describe('Revert last commit', () => {
     it('should revert to the previous commit', async () => {         
         await branch.checkout();
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         
         const commit = await branch.commit('A commit');

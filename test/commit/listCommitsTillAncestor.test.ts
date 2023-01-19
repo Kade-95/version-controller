@@ -12,7 +12,7 @@ describe('List commit till ancestor', () => {
     beforeEach(async () => {
         repository = await Repository.create<Sample>('Sample', {...data});
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         commit = await Commit.create(repository, 'a commit', repository.head.commit as '') as Commit;
     });
@@ -21,7 +21,7 @@ describe('List commit till ancestor', () => {
 
     it('should get all commits till ancestor', async () => { 
         repository.board = { ...data, name: 'Toch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const _commit = await Commit.create(repository, 'another commit', commit._id as '') as Commit;       
         const list = await _commit.listCommitsTillAncestor(commit);   
@@ -31,7 +31,7 @@ describe('List commit till ancestor', () => {
 
     it('should get empty list when commits are not related', async () => { 
         repository.board = { ...data, name: 'Toch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const _commit = await Commit.create(repository, 'another commit', '') as Commit;       
         const list = await _commit.listCommitsTillAncestor(commit);   

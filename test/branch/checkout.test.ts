@@ -25,13 +25,13 @@ describe('Checkout Branch', () => {
 
     it('should fail when there are changes in the repository', async () => {        
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await assert.rejects(branch.checkout(), { name: 'Error', message: 'Branch unsafe, active changes'})
     });
 
     it('should fail when there are staged changes in the repository', async () => {        
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         await assert.rejects(branch.checkout(), { name: 'Error', message: 'Branch unsafe, active staged changes'})
     });

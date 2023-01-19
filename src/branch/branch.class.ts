@@ -72,7 +72,7 @@ export class Branch implements IBranch {
     }
 
     async getCommit(){
-        const commit = await this.repo.commitStore.read({ _id: this.commit_id }) as Commit;        
+        const commit = await this.repo.commitStore.read({ _id: this.commit_id }) as Commit;                
         return Commit.from(this.repo, commit._id as string);
     }
 
@@ -108,7 +108,7 @@ export class Branch implements IBranch {
 
         const commit = await this.getCommit();
         const lastCommonAncestor = await incomingCommit.lastCommonAncestor(commit);
-
+        
         if (!lastCommonAncestor) {
             throw new Error("Branch is not related");
         }
@@ -132,7 +132,7 @@ export class Branch implements IBranch {
             console.log(`Writing ${changes.length} changes`);
             this.repo.board = update(this.repo.data, changes);
 
-            await this.repo.save();
+            await this.repo.add();
             await this.repo.stage();
             await Commit.create(this.repo, `Merged: '${incomingBranch.name}' into '${this.name}'`, commit._id as string, incomingCommit._id);
         }
@@ -145,7 +145,7 @@ export class Branch implements IBranch {
         const existing = await repo.branchStore.read({ name });
         if (existing) throw new Error('Branch already exists');
 
-        const currentCommit = repo.head.commit;
+        const currentCommit = repo.head.commit;        
         await repo.branchStore.insert({ name, commit_id: currentCommit });
 
         return Branch.from(repo, name);

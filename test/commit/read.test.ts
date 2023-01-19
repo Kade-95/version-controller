@@ -12,7 +12,7 @@ describe('Read Commit', () => {
     beforeEach(async () => {
         repository = await Repository.create<Sample>('Sample', {...data});
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         commit = await Commit.create(repository, 'a commit', '') as Commit;
     });

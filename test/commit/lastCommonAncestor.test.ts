@@ -12,7 +12,7 @@ describe('LastCommonAncestor (commit, commit)', () => {
     beforeEach(async () => {
         repository = await Repository.create<Sample>('Sample', {...data});
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         commit = await Commit.create(repository, 'a commit', repository.head.commit as '') as Commit;
     });
@@ -21,7 +21,7 @@ describe('LastCommonAncestor (commit, commit)', () => {
 
     it('should get the last common ancestor when commit is ancestor', async () => { 
         repository.board = { ...data, name: 'Toch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const _commit = await Commit.create(repository, 'another commit', commit._id as '') as Commit;       
         const ancestor = await commit.lastCommonAncestor(_commit);        
@@ -30,12 +30,12 @@ describe('LastCommonAncestor (commit, commit)', () => {
 
     it('should get last common ancestor when both commits have the same ancestor', async () => { 
         repository.board = { ...data, name: 'Toch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const _commit = await Commit.create(repository, 'another commit', commit._id as '') as Commit; 
         
         repository.board = { ...data, name: 'ch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const __commit = await Commit.create(repository, 'another commit', commit._id as '') as Commit; 
 
@@ -45,7 +45,7 @@ describe('LastCommonAncestor (commit, commit)', () => {
 
     it('should fail when commits are not related', async () => { 
         repository.board = { ...data, name: 'Toch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const _commit = await Commit.create(repository, 'another commit', '') as Commit; 
 

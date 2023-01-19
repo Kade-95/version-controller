@@ -23,7 +23,7 @@ describe('Merge Branch', () => {
     it('should fail when incoming branch is behind', async () => {         
         await branch.checkout();
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         await branch.commit('A commit');
 
@@ -42,7 +42,7 @@ describe('Merge Branch', () => {
         const newBranch = await Branch.create(repository, 'new');
         await newBranch.checkout();
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         await newBranch.commit('A commit');
 
@@ -57,13 +57,13 @@ describe('Merge Branch', () => {
         const newBranch = await Branch.create(repository, 'new');
         await newBranch.checkout();
         repository.board = { ...data, age: 4 };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         await newBranch.commit('A commit');
 
         await branch.checkout();
         repository.board = { ...data, name: 'Toc' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         await branch.commit('Another commit');
 

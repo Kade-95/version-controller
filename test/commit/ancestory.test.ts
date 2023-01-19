@@ -12,7 +12,7 @@ describe('Commit Ancestory', () => {
     beforeEach(async () => {
         repository = await Repository.create<Sample>('Sample', {...data});
         repository.board = { ...data, name: 'Ken' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         commit = await Commit.create(repository, 'a commit', repository.head.commit as '') as Commit;
     });
@@ -26,7 +26,7 @@ describe('Commit Ancestory', () => {
 
     it('should all commit ancestory', async () => { 
         repository.board = { ...data, name: 'Toch' };
-        await repository.save();
+        await repository.add();
         await repository.stage();
         const _commit = await Commit.create(repository, 'another commit', commit._id as '') as Commit;       
         const list = await _commit.ancestory();        
