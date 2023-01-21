@@ -20,11 +20,12 @@ describe('Get Changes ()', () => {
         data = { ...data, data: { a: 1 }};
         const a = getChanges(
             data, 
-            { ...data, data: { a: 5 } }, 
-            { path: ['data']}
+            { ...data, data: { a: 5, b: 9 } }, 
+            { path: ['data'], bi: true }
         );
-        
+
         expect(a).to.deep.include({ path: [ 'data', 'a' ], type: ChangeEnum.MUTATED, before: 1, after: 5 });
+        expect(a).to.deep.include({ path: [ 'data', 'b' ], type: ChangeEnum.ADDED, before: undefined, after: 9 });
     });
 
     it('should the changes in the data bi-directionally', () => {
@@ -37,11 +38,11 @@ describe('Get Changes ()', () => {
         expect(a).to.deep.include({ path: [ 'data' ], type: ChangeEnum.ADDED, before: undefined, after: { a: 5 } });
     });
 
-    it('should the changes in the data halphed is set as true', () => {
+    it('should the changes in the data flip is set as true', () => {
         const a = getChanges(
             data, 
             { ...data, name: 'Ken' }, 
-            { halphed: true }
+            { flip: true }
         );
         
         expect(a).to.deep.include({ path: [ 'name' ], type: ChangeEnum.MUTATED, before: 'Ken', after: 'Name' });

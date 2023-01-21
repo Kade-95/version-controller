@@ -1,11 +1,20 @@
 import { Commit } from "../commit/commit.class";
 import { Repository } from "../repository/repository.class";
 import { Store } from "../store/store.class";
-import { rollback } from "../change/rollback";
-import { update } from "../change/update";
+import { modify } from "../change/modify";
 import { IBranch } from "./branch.interface";
 
 export class Branch implements IBranch {
+    /**
+    * @summary
+    * Creates a Branch
+    *
+    * @param name - This is the name for the branch
+    * @param {Repository<any>} repo - This is the repo that owns the branch
+    * @param commit_id - This is the current branch's commit id
+    * @param store - This is the storage for the branch details
+    */
+
     private store: Store<IBranch>;
     private content: IBranch | undefined;
 
@@ -24,11 +33,24 @@ export class Branch implements IBranch {
     private async setup(
         callback: any
     ){
+        /**
+        * @summary
+        * An async function used to initialize the Branch class
+        * 
+        * @param callback - This is a callback function to execute after branch is setup
+        */
+
         await this.read();
         if (callback) callback(this);
     }
 
     async read(){
+        /**
+        * @summary
+        * Read the contents of the branch off the storage
+        *
+        */
+
         this.content = await this.store.read({ name: this.name });    
             
         Object.keys(this.content || {}).map(k => {
@@ -39,6 +61,12 @@ export class Branch implements IBranch {
     }
 
     async delete(){
+        /**
+        * @summary
+        * Deletes the branch from the repository
+        *
+        */
+
         const activeBranch = (await this.repo.branch) as IBranch;
         if (activeBranch.name === this.name) throw new Error("You can not remove the active branch");
         if (this.name == this.repo.defaultBranch) throw new Error("You can not remove the default branch");
@@ -48,6 +76,12 @@ export class Branch implements IBranch {
     }
 
     async checkout(){
+        /**
+        * @summary
+        * Makes branch the active branch of the repository
+        *
+        */
+
         this.repo.safetyCheck();
 
         const currentBranch = await Branch.from(this.repo, (await this.repo.branch as Branch).name);
@@ -60,10 +94,10 @@ export class Branch implements IBranch {
         const changes = await commit.changesTillAncestor(lastCommonAncestor);
 
         console.log(`Rolling back ${currentChanges.length} changes`);
-        const reverts = rollback(this.repo.data, currentChanges);
+        const reverts = modify(this.repo.data, currentChanges, 'rollback');
 
         console.log(`Writting back ${changes.length} changes`);
-        const data = update(reverts, changes);
+        const data = modify(reverts, changes, 'update');
 
         await this.repo.store.update({ _id: this.repo._id }, { head: { branch: this._id, commit: this.commit_id }, data });
         await this.repo.read();
@@ -72,6 +106,12 @@ export class Branch implements IBranch {
     }
 
     async getCommit(){
+        /**
+        * @summary
+        * Get the current branch commit as a Commit class
+        *
+        */
+
         const commit = await this.repo.commitStore.read({ _id: this.commit_id }) as Commit;                
         return Commit.from(this.repo, commit._id as string);
     }
@@ -79,6 +119,14 @@ export class Branch implements IBranch {
     async commit(
         message: string
     ){
+        /**
+        * @summary
+        * Commits the changes in the branch
+        * 
+        * @param message - A note describing the commit
+        *
+        */
+
         const commit = await Commit.create(this.repo, message, this.commit_id as string) as Commit;
         await this.store.update({ _id: this._id }, { commit_id: commit._id });
         await this.read();
@@ -86,6 +134,12 @@ export class Branch implements IBranch {
     }
 
     async revertLastCommit(){
+        /**
+        * @summary
+        * Reverts the last commit for the branch to the commits ancestor
+        *
+        */
+
         const { changes: commitChanges, ancestor } = await this.getCommit();
         if (!ancestor) throw new Error("No previous commit found");
 
@@ -103,6 +157,13 @@ export class Branch implements IBranch {
     async merge(
         name: string
     ){
+        /**
+        * @summary
+        * Merges a branch to this branch
+        *
+        * @param name - Name of the branch to merge
+        */
+
         const incomingBranch = await Branch.from(this.repo, name);    
         const incomingCommit = await incomingBranch.getCommit();
 
@@ -130,7 +191,7 @@ export class Branch implements IBranch {
         else {
             const changes = (await incomingCommit.changesTillAncestor(lastCommonAncestor)).reverse();
             console.log(`Writing ${changes.length} changes`);
-            this.repo.board = update(this.repo.data, changes);
+            this.repo.board = modify(this.repo.data, changes, 'update');
 
             await this.repo.add();
             await this.repo.stage();
@@ -142,6 +203,14 @@ export class Branch implements IBranch {
         repo: Repository<any>,
         name: string
     ){
+         /**
+        * @summary
+        * A function to create a new branch
+        *
+        * @param name - This is the name of the new branch
+        * @param {Repository<any>} repo - This is the repo that owns the branch
+        */
+
         const existing = await repo.branchStore.read({ name });
         if (existing) throw new Error('Branch already exists');
 
@@ -155,6 +224,14 @@ export class Branch implements IBranch {
         repo: Repository<any>,
         name: string
     ){
+        /**
+        * @summary
+        * A function to create branch from an existing branch data
+        *
+        * @param name - This is the name of the new branch
+        * @param {Repository<any>} repo - This is the repo that owns the branch
+        */
+
         const exists = await repo.branchStore.read({ name });
         if (!exists) throw new Error("Branch does not exist");
 
@@ -166,6 +243,14 @@ export class Branch implements IBranch {
         repo: Repository<any>,
         name: string
     ){
+        /**
+        * @summary
+        * Makes a branch active in the repository
+        *
+        * @param name - This is the name of the branch to checkout
+        * @param {Repository<any>} repo - This is the repo that owns the branch
+        */
+
         const branch = await Branch.create(repo, name);
         await branch.checkout();
     }

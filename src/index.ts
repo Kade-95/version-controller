@@ -1,8 +1,9 @@
-import { Repo } from "..";
-import { Sample } from "./models/sample";
-import { Repository } from "./repo.class";
+import { Repository } from './repository/repository.class';
+import { Branch } from './branch/branch.class';
+import { Commit } from './commit/commit.class';
 
-new Repository<Sample>("Sample", null, (repo: Repo<Sample>) => {
-    console.log(repo);
-});
-
+export {
+    Repository,
+    Branch,
+    Commit
+}
